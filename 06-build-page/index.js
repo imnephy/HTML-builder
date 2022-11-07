@@ -1,4 +1,5 @@
 const fs = require('fs');
+const { readFile } = require('fs/promises');
 const path = require('path');
 
 
@@ -6,31 +7,27 @@ const path = require('path');
 const sourceHtml = path.join(__dirname, 'template.html');
 const targetHtml = path.join(__dirname, 'project-dist', 'index.html')
 const components = path.join(__dirname, 'components');
- 
 
-const inputHtml = fs.createReadStream(sourceHtml, 'utf-8');
-const outputHtml = fs.createWriteStream(targetHtml)
-inputHtml.pipe(outputHtml)
-let indexHtmlContent = fs.createReadStream(targetHtml, 'utf-8');
-console.log(indexHtmlContent);
-fs.readdir(components, { withFileTypes: true }, (err, data) => {
-    if (err) console.log(err.message);
-    data.forEach(file => {
-        const componentName =  path.basename(file.name, path.extname(file.name));
-        switch (componentName){
-            case 'articles':{
-                // indexHtmlContent.replace()
-            };
-        };
-    })
-});
+async function createHtml() {
+    try {
+        let dataTemplate = await fs.promises.readFile(sourceHtml, 'utf-8');
+        const componentsHtml = await fs.promises.readdir(components);
+        for (let i = 0; i < componentsHtml.length; i++) {
+            let basenameFile = componentsHtml[i].split('.')[0];
+            let componentData = await readFile(path.join(components, componentsHtml[i]), 'utf-8');
+            dataTemplate = dataTemplate.replace(`{{${basenameFile}}}`, componentData);
+            await fs.promises.writeFile(targetHtml, dataTemplate)
+        }
+    } catch (error) {
+        console.log(error.message);
+    }
+}
 
 
 
 
 
 // COPY STYLES IN BUNDLE STYLE.CSS
-const sourceCss = path.join(__dirname, 'styles/')
 const target = path.join(__dirname, 'project-dist/')
 
 
@@ -45,16 +42,44 @@ async function createFolder() {
     }
 }
 createFolder()
-
+createHtml()
 
 const bundleCss = path.join(__dirname, 'project-dist', 'style.css');
-const outputCss = fs.createWriteStream(bundleCss);
+const cssSource = path.join(__dirname, 'styles')
 
-fs.readdir(sourceCss, { withFileTypes: true }, (err, data) => {
-    if (err) console.log(err.message);
-    data.forEach(file => {
-        const inputCss = fs.createReadStream(sourceCss + file.name, 'utf-8');
-        inputCss.pipe(outputCss);
-    })
-})
+async function bundleCssF() {
+    const cssData = await fs.promises.readdir(cssSource);
+    for (let i = 0; i < cssData.length; i++) {
+        let fileCssContent = await fs.promises.readFile(path.join(cssSource, cssData[i]), 'utf-8');
+        await fs.promises.appendFile(bundleCss, fileCssContent);
+    }
+}
 
+bundleCssF()
+
+//COPY ASSETS
+const assetsSource = path.join(__dirname, 'assets')
+const assetsTarget = path.join(__dirname, 'project-dist', 'assets')
+
+
+
+async function copyAssets(source, target) {
+    try {
+        await fs.promises.rm(target, { recursive: true, force: true });
+        await fs.promises.mkdir(target, { recursive: true });
+        const assetsContent = await fs.promises.readdir(source, { withFileTypes: true });
+        for (let i = 0; i < assetsContent.length; i++) {
+            if (assetsContent[i].isFile()) {
+                await fs.promises.copyFile(path.join(source, assetsContent[i].name), path.join(target, assetsContent[i].name));
+            } else {
+                copyAssets(path.join(source, assetsContent[i].name), path.join(target, assetsContent[i].name))
+            }
+
+        }
+
+    } catch (error) {
+        console.log(error.message);
+    }
+}
+
+copyAssets(assetsSource, assetsTarget)
