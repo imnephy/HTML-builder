@@ -45,14 +45,17 @@ createFolder()
 createHtml()
 
 const bundleCss = path.join(__dirname, 'project-dist', 'style.css');
-const cssSource = path.join(__dirname, 'styles')
+const cssSource = path.join(__dirname, 'styles/')
+const outputCss = fs.createWriteStream(bundleCss);
 
-async function bundleCssF() {
-    const cssData = await fs.promises.readdir(cssSource);
-    for (let i = 0; i < cssData.length; i++) {
-        let fileCssContent = await fs.promises.readFile(path.join(cssSource, cssData[i]), 'utf-8');
-        await fs.promises.appendFile(bundleCss, fileCssContent);
-    }
+function bundleCssF() {
+    const cssData = fs.readdir(cssSource, { withFileTypes: true }, (err, data) => {
+        if (err) console.log(err.message);
+        data.forEach(file => {
+            const input = fs.createReadStream(cssSource + file.name, 'utf-8');
+            input.pipe(outputCss);
+        })
+    });
 }
 
 bundleCssF()
