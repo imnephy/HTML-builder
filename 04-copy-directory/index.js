@@ -18,6 +18,8 @@ async function createFolder() {
 
 async function copyFiles() {
     try {
+        await fs.promises.rm(target, { recursive: true, force: true });
+        await fs.promises.mkdir(target, { recursive: true });
         fs.readdir(source, { withFileTypes: true }, (err, data) => {
             if (err) console.log(err.message);
             data.forEach(file => {
